@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { fetchVacancies, fetchCounts } from './api';
+import { fetchVacancies, fetchCounts, fetchSessionStart, fetchChannels, resync } from './api';
 import type { Vacancy, VacancyStatus, StatusCounts } from './types';
 import StatusFilter from './components/StatusFilter';
 import VacancyList from './components/VacancyList';
@@ -10,6 +10,16 @@ const EMPTY_COUNTS: StatusCounts = { new: 0, saved: 0, applied: 0, skipped: 0 };
 
 export default function App() {
   const [filter, setFilter] = useState<FilterValue>('new');
+  const [hasContact, setHasContact] = useState(false);
+  const [isRemote, setIsRemote] = useState(false);
+  const [noOffice, setNoOffice] = useState(false);
+  const [noLead, setNoLead] = useState(false);
+  const [sinceStartup, setSinceStartup] = useState(false);
+  const [sessionStart, setSessionStart] = useState<string | null>(null);
+  const [channel, setChannel] = useState<string>('');
+  const [channels, setChannels] = useState<string[]>([]);
+  const [resyncing, setResyncing] = useState(false);
+  const [resyncToast, setResyncToast] = useState<string | null>(null);
   const [vacancies, setVacancies] = useState<Vacancy[]>([]);
   const [total, setTotal] = useState(0);
   const [counts, setCounts] = useState<StatusCounts>(EMPTY_COUNTS);
@@ -19,11 +29,11 @@ export default function App() {
   const LIMIT = 50;
 
   const load = useCallback(
-    async (f: FilterValue, p: number) => {
+    async (f: FilterValue, p: number, hc: boolean, ir: boolean, no: boolean, nl: boolean, ss: boolean, ch: string) => {
       setLoading(true);
       try {
         const [res, c] = await Promise.all([
-          fetchVacancies(f, p, LIMIT),
+          fetchVacancies(f, p, LIMIT, hc, ir, no, nl, ss, ch || undefined),
           fetchCounts(),
         ]);
         setVacancies(res.items);
@@ -39,22 +49,86 @@ export default function App() {
   );
 
   useEffect(() => {
-    void load(filter, page);
-  }, [filter, page, load]);
+    fetchSessionStart().then(setSessionStart).catch(() => {});
+    fetchChannels().then(setChannels).catch(() => {});
+  }, []);
+
+  useEffect(() => {
+    void load(filter, page, hasContact, isRemote, noOffice, noLead, sinceStartup, channel);
+  }, [filter, page, hasContact, isRemote, noOffice, noLead, sinceStartup, channel, load]);
 
   const handleFilterChange = (f: FilterValue) => {
     setFilter(f);
     setPage(1);
   };
 
+  const handleHasContactChange = (v: boolean) => {
+    setHasContact(v);
+    setPage(1);
+  };
+
+  const handleIsRemoteChange = (v: boolean) => {
+    setIsRemote(v);
+    setPage(1);
+  };
+
+  const handleNoOfficeChange = (v: boolean) => {
+    setNoOffice(v);
+    setPage(1);
+  };
+
+  const handleNoLeadChange = (v: boolean) => {
+    setNoLead(v);
+    setPage(1);
+  };
+
+  const handleSinceStartupChange = (v: boolean) => {
+    setSinceStartup(v);
+    setPage(1);
+  };
+
+  const handleChannelChange = (v: string) => {
+    setChannel(v);
+    setPage(1);
+  };
+
   const handleStatusChange = () => {
-    void load(filter, page);
+    void load(filter, page, hasContact, isRemote, noOffice, noLead, sinceStartup, channel);
+  };
+
+  const handleResync = async () => {
+    setResyncing(true);
+    setResyncToast(null);
+    try {
+      const { added } = await resync();
+      setResyncToast(added > 0 ? `+${added} новых вакансий` : 'Новых нет');
+      if (added > 0) void load(filter, page, hasContact, isRemote, noOffice, noLead, sinceStartup, channel);
+    } catch {
+      setResyncToast('Ошибка синхронизации');
+    } finally {
+      setResyncing(false);
+      setTimeout(() => setResyncToast(null), 4000);
+    }
   };
 
   const totalPages = Math.ceil(total / LIMIT);
 
   return (
     <div className="flex min-h-screen flex-col">
+      {/* Progress bar */}
+      {resyncing && (
+        <div className="fixed inset-x-0 top-0 z-50 h-1 bg-gray-800">
+          <div className="h-full animate-[resync-bar_2s_ease-in-out_infinite] bg-indigo-500" />
+        </div>
+      )}
+
+      {/* Toast */}
+      {resyncToast && (
+        <div className="fixed bottom-6 right-6 z-50 rounded-xl bg-gray-800 px-4 py-3 text-sm font-medium text-white shadow-2xl ring-1 ring-gray-700">
+          {resyncToast}
+        </div>
+      )}
+
       {/* Top bar */}
       <header className="border-b border-gray-800 bg-gray-950 px-6 py-4">
         <div className="mx-auto flex max-w-6xl items-center justify-between">
@@ -64,12 +138,21 @@ export default function App() {
               Node · NestJS · React · Next
             </span>
           </div>
-          <button
-            onClick={() => void load(filter, page)}
-            className="rounded-lg bg-gray-800 px-3 py-1.5 text-xs font-medium text-gray-300 hover:bg-gray-700"
-          >
-            ↻ Обновить
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => void handleResync()}
+              disabled={resyncing}
+              className="rounded-lg bg-indigo-700 px-3 py-1.5 text-xs font-medium text-white hover:bg-indigo-600 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {resyncing ? '⏳ Синхронизация...' : '⟳ Ресинк'}
+            </button>
+            <button
+              onClick={() => void load(filter, page, hasContact, isRemote, noOffice, noLead, sinceStartup, channel)}
+              className="rounded-lg bg-gray-800 px-3 py-1.5 text-xs font-medium text-gray-300 hover:bg-gray-700"
+            >
+              ↻ Обновить
+            </button>
+          </div>
         </div>
       </header>
 
@@ -77,7 +160,7 @@ export default function App() {
       <div className="mx-auto flex w-full max-w-6xl flex-1 gap-6 px-6 py-6">
         {/* Sidebar */}
         <aside className="w-44 shrink-0">
-          <StatusFilter active={filter} counts={counts} onChange={handleFilterChange} />
+          <StatusFilter active={filter} counts={counts} onChange={handleFilterChange} hasContact={hasContact} onHasContactChange={handleHasContactChange} isRemote={isRemote} onIsRemoteChange={handleIsRemoteChange} noOffice={noOffice} onNoOfficeChange={handleNoOfficeChange} noLead={noLead} onNoLeadChange={handleNoLeadChange} sinceStartup={sinceStartup} onSinceStartupChange={handleSinceStartupChange} sessionStart={sessionStart} channel={channel} channels={channels} onChannelChange={handleChannelChange} />
         </aside>
 
         {/* Main */}

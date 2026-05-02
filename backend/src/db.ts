@@ -28,7 +28,32 @@ export function getDb(): Database.Database {
       matched_at    DATETIME DEFAULT (datetime('now')),
       UNIQUE(channel, message_id)
     );
+
+    CREATE TABLE IF NOT EXISTS meta (
+      key   TEXT PRIMARY KEY,
+      value TEXT NOT NULL
+    );
   `);
 
   return _db;
+}
+
+/**
+ * Returns the timestamp of the previous session start (or null on first run),
+ * then updates the stored value to now.
+ */
+export function rotateSessionStart(): string | null {
+  const db = getDb();
+  const now = new Date().toISOString();
+
+  const row = db
+    .prepare("SELECT value FROM meta WHERE key = 'last_session_start'")
+    .get() as { value: string } | undefined;
+
+  const previous = row?.value ?? null;
+
+  db.prepare("INSERT OR REPLACE INTO meta (key, value) VALUES ('last_session_start', ?)")
+    .run(now);
+
+  return previous;
 }

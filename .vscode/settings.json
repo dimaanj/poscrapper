@@ -1,0 +1,8 @@
+{
+    "chat.tools.terminal.autoApprove": {
+        "/^command -v nvm 2>/dev/null \\|\\| echo \"no nvm\"$/": {
+            "approve": true,
+            "matchCommandLine": true
+        }
+    }
+}

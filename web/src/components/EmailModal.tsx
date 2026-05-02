@@ -27,6 +27,12 @@ export default function EmailModal({ vacancy, onClose, onSent }: Props) {
     onSent();
   };
 
+  const handleOpenGmail = () => {
+    const gmail = `https://mail.google.com/mail/?view=cm&to=${encodeURIComponent(vacancy.contact_value)}&su=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+    window.open(gmail, '_blank');
+    onSent();
+  };
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4">
       <div className="flex w-full max-w-xl flex-col gap-4 rounded-xl bg-gray-900 p-6 shadow-2xl">
@@ -62,16 +68,23 @@ export default function EmailModal({ vacancy, onClose, onSent }: Props) {
         </div>
 
         <p className="text-xs text-gray-500">
-          Откроется в вашем почтовом клиенте. Тему и текст можно отредактировать перед отправкой.
+          Тему и текст можно отредактировать перед отправкой.
         </p>
 
         <div className="flex gap-3">
           <button
-            onClick={handleOpenMailto}
+            onClick={handleOpenGmail}
             disabled={!subject.trim() || !body.trim()}
             className="flex-1 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-indigo-500 disabled:cursor-not-allowed disabled:opacity-50"
           >
-            📧 Открыть в почте
+            📧 Gmail
+          </button>
+          <button
+            onClick={handleOpenMailto}
+            disabled={!subject.trim() || !body.trim()}
+            className="rounded-lg bg-gray-800 px-4 py-2 text-sm font-medium text-gray-300 hover:bg-gray-700 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            Другой клиент
           </button>
           <button
             onClick={onClose}

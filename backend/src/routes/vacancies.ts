@@ -4,6 +4,10 @@ import { sendMessage } from '../telegram';
 
 const router = Router();
 
+// Set by index.ts after DB init — the start time of the PREVIOUS session
+let _prevSessionStart: string | null = null;
+export function setPrevSessionStart(ts: string | null) { _prevSessionStart = ts; }
+
 const VALID_STATUSES = ['new', 'saved', 'applied', 'skipped'] as const;
 type Status = (typeof VALID_STATUSES)[number];
 
@@ -11,18 +15,47 @@ function isValidStatus(s: unknown): s is Status {
   return VALID_STATUSES.includes(s as Status);
 }
 
-// GET /api/vacancies?status=new&page=1&limit=50
+// GET /api/vacancies?status=new&hasContact=true&isRemote=true&page=1&limit=50
 router.get('/', (req: Request, res: Response) => {
   const db = getDb();
-  const { status, page = '1', limit = '50' } = req.query as Record<string, string>;
+  const { status, hasContact, isRemote, noOffice, noLead, sinceStartup, channel, page = '1', limit = '50' } = req.query as Record<string, string>;
 
   const pageNum = Math.max(1, parseInt(page, 10));
   const limitNum = Math.min(100, Math.max(1, parseInt(limit, 10)));
   const offset = (pageNum - 1) * limitNum;
 
-  const useFilter = status && isValidStatus(status);
-  const where = useFilter ? 'WHERE status = ?' : '';
-  const params: unknown[] = useFilter ? [status] : [];
+  const conditions: string[] = [];
+  const params: unknown[] = [];
+
+  if (status && isValidStatus(status)) {
+    conditions.push('status = ?');
+    params.push(status);
+  }
+  if (hasContact === 'true') {
+    conditions.push("contact_type != 'unknown'");
+  }
+  if (isRemote === 'true') {
+    conditions.push("(text LIKE '%удалённо%' OR text LIKE '%удаленно%' OR text LIKE '%remote%' OR text LIKE '%ремоут%' OR text LIKE '%дистанционно%')");
+  }
+  if (noOffice === 'true') {
+    conditions.push("(text NOT LIKE '%офис%' AND text NOT LIKE '%office%' AND text NOT LIKE '% РФ%' AND text NOT LIKE '%РФ.%' AND text NOT LIKE '%российская федерация%' AND text NOT LIKE '%россия%' AND text NOT LIKE '%москва%' AND text NOT LIKE '%санкт-петербург%' AND text NOT LIKE '%спб%')");
+  }
+  if (noLead === 'true') {
+    conditions.push("(text NOT LIKE '%lead%' AND text NOT LIKE '%лид%' AND text NOT LIKE '%team lead%' AND text NOT LIKE '%tech lead%')");
+  }
+  if (sinceStartup === 'true' && _prevSessionStart) {
+    conditions.push('matched_at >= ?');
+    params.push(_prevSessionStart);
+  }
+  if (channel) {
+    conditions.push('channel = ?');
+    params.push(channel);
+  }
+
+  // always hide closed vacancies
+  conditions.push("(text NOT LIKE '%закрыт%' AND text NOT LIKE '%закрыто%' AND text NOT LIKE '%вакансия закрыта%')");
+
+  const where = conditions.length ? `WHERE ${conditions.join(' AND ')}` : '';
 
   const { cnt } = db
     .prepare(`SELECT COUNT(*) as cnt FROM vacancies ${where}`)
@@ -33,6 +66,15 @@ router.get('/', (req: Request, res: Response) => {
     .all(...params, limitNum, offset);
 
   res.json({ total: cnt, page: pageNum, limit: limitNum, items });
+});
+
+// GET /api/vacancies/channels — list of distinct channels in DB
+router.get('/channels', (_req: Request, res: Response) => {
+  const db = getDb();
+  const rows = db
+    .prepare('SELECT DISTINCT channel FROM vacancies ORDER BY channel ASC')
+    .all() as Array<{ channel: string }>;
+  res.json(rows.map((r) => r.channel));
 });
 
 // GET /api/vacancies/counts
