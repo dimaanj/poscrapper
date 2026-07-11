@@ -12,12 +12,12 @@ const HISTORY_BATCH = 100;  // Telegram API max per request
 function makeSaveMessage(db: ReturnType<typeof getDb>) {
   const insertVacancy = db.prepare(`
     INSERT OR IGNORE INTO vacancies
-      (channel, message_id, text, preview, contact_type, contact_value, tg_link)
+      (channel, message_id, text, preview, contact_type, contact_value, tg_link, message_date)
     VALUES
-      (@channel, @message_id, @text, @preview, @contact_type, @contact_value, @tg_link)
+      (@channel, @message_id, @text, @preview, @contact_type, @contact_value, @tg_link, @message_date)
   `);
 
-  return function saveMessage(channelName: string, username: string | undefined, msg: { id: number; text?: string | null }) {
+  return function saveMessage(channelName: string, username: string | undefined, msg: { id: number; text?: string | null; date?: number }) {
     if (!msg?.text) return false;
     if (!shouldApply(msg.text)) return false;
 
@@ -33,6 +33,7 @@ function makeSaveMessage(db: ReturnType<typeof getDb>) {
         contact_type: contact.type,
         contact_value: contact.value,
         tg_link: tgLink,
+        message_date: msg.date ? new Date(msg.date * 1000).toISOString() : null,
       });
       return result.changes > 0;
     } catch (err: unknown) {
@@ -87,7 +88,7 @@ export async function fetchHistory(): Promise<number> {
             reachedCutoff = true;
             break;
           }
-          if (saveMessage(`@${channel}`, channel, { id: m.id, text: m.message })) saved++;
+          if (saveMessage(`@${channel}`, channel, { id: m.id, text: m.message, date: m.date })) saved++;
           fetched++;
         }
 
@@ -129,7 +130,7 @@ export async function startScraper(): Promise<void> {
     const username = (chat as unknown as Record<string, unknown>)?.username as string | undefined;
     const channelName = username ? `@${username}` : String((chat as unknown as Record<string, unknown>)?.id ?? '');
 
-    if (saveMessage(channelName, username, { id: msg.id, text: msg.text })) {
+    if (saveMessage(channelName, username, { id: msg.id, text: msg.text, date: msg.date })) {
       const contact = parseContact(msg.text);
       console.log(`📥 New vacancy: ${channelName} #${msg.id} [${contact.type}]`);
     }

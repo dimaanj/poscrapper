@@ -39,6 +39,7 @@ router.get('/', (req: Request, res: Response) => {
     channels,
     since,
     location,
+    exclude,
     page = '1',
     limit = '50',
   } = req.query as Record<string, string>;
@@ -73,7 +74,7 @@ router.get('/', (req: Request, res: Response) => {
     conditions.push("(text NOT LIKE '%lead%' AND text NOT LIKE '%лид%' AND text NOT LIKE '%team lead%' AND text NOT LIKE '%tech lead%')");
   }
   if (since && TIMELINE_SQL[since]) {
-    conditions.push("matched_at >= datetime('now', ?)");
+    conditions.push("COALESCE(message_date, matched_at) >= datetime('now', ?)");
     params.push(TIMELINE_SQL[since]);
   }
   if (sinceStartup === 'true' && _prevSessionStart) {
@@ -94,6 +95,18 @@ router.get('/', (req: Request, res: Response) => {
     params.push(channel);
   }
 
+  // exclude specific statuses (e.g. exclude=saved,skipped)
+  if (exclude) {
+    const excludeList = exclude
+      .split(',')
+      .map((s) => s.trim())
+      .filter((s) => VALID_STATUSES.includes(s as Status));
+    if (excludeList.length > 0) {
+      conditions.push(`status NOT IN (${excludeList.map(() => '?').join(',')})`);
+      params.push(...excludeList);
+    }
+  }
+
   // always hide closed vacancies
   conditions.push("(text NOT LIKE '%закрыт%' AND text NOT LIKE '%закрыто%' AND text NOT LIKE '%вакансия закрыта%')");
 
@@ -104,7 +117,7 @@ router.get('/', (req: Request, res: Response) => {
     .get(...params) as { cnt: number };
 
   const items = db
-    .prepare(`SELECT * FROM vacancies ${where} ORDER BY matched_at DESC LIMIT ? OFFSET ?`)
+    .prepare(`SELECT * FROM vacancies ${where} ORDER BY COALESCE(message_date, matched_at) DESC LIMIT ? OFFSET ?`)
     .all(...params, limitNum, offset);
 
   res.json({ total: cnt, page: pageNum, limit: limitNum, items });

@@ -33,6 +33,8 @@ export default function App() {
   const [location, setLocation] = useState<LocationFilter>('any');
   const [selectedChannels, setSelectedChannels] = useState<string[]>([]);
   const [channels, setChannels] = useState<string[]>([]);
+  const [hideSaved, setHideSaved] = useState(false);
+  const [hideSkipped, setHideSkipped] = useState(false);
   const [resyncing, setResyncing] = useState(false);
   const [resyncToast, setResyncToast] = useState<string | null>(null);
   const [vacancies, setVacancies] = useState<Vacancy[]>([]);
@@ -53,11 +55,12 @@ export default function App() {
       tl: TimelineFilter,
       loc: LocationFilter,
       chList: string[],
+      exStatuses: VacancyStatus[],
     ) => {
       setLoading(true);
       try {
         const [res, c] = await Promise.all([
-          fetchVacancies(f, p, LIMIT, hc, nl, ss, tl, loc, chList),
+          fetchVacancies(f, p, LIMIT, hc, nl, ss, tl, loc, chList, exStatuses),
           fetchCounts(),
         ]);
         setVacancies(res.items);
@@ -78,8 +81,12 @@ export default function App() {
   }, []);
 
   useEffect(() => {
-    void load(filter, page, hasContact, noLead, sinceStartup, timeline, location, selectedChannels);
-  }, [filter, page, hasContact, noLead, sinceStartup, timeline, location, selectedChannels, load]);
+    const excluded: VacancyStatus[] = [
+      ...(hideSaved ? ['saved' as VacancyStatus] : []),
+      ...(hideSkipped ? ['skipped' as VacancyStatus] : []),
+    ];
+    void load(filter, page, hasContact, noLead, sinceStartup, timeline, location, selectedChannels, excluded);
+  }, [filter, page, hasContact, noLead, sinceStartup, timeline, location, selectedChannels, hideSaved, hideSkipped, load]);
 
   const handleFilterChange = (f: FilterValue) => {
     setFilter(f);
@@ -116,11 +123,18 @@ export default function App() {
     setPage(1);
   };
 
+  const buildExcluded = () => [
+    ...(hideSaved ? ['saved' as VacancyStatus] : []),
+    ...(hideSkipped ? ['skipped' as VacancyStatus] : []),
+  ];
+
   const handleStatusChange = (id: number, status: VacancyStatus) => {
     setVacancies((prev) => {
       const oldStatus = prev.find((v) => v.id === id)?.status;
-      // remove card from list if active filter no longer matches
-      const matchesFilter = filter === 'all' || filter === status;
+      const hiddenByExclude =
+        (status === 'saved' && hideSaved) || (status === 'skipped' && hideSkipped);
+      const matchesFilter =
+        (filter === 'all' || filter === status) && !hiddenByExclude;
       const next = matchesFilter
         ? prev.map((v) => (v.id === id ? { ...v, status } : v))
         : prev.filter((v) => v.id !== id);
@@ -142,7 +156,7 @@ export default function App() {
     try {
       const { added } = await resync();
       setResyncToast(added > 0 ? `+${added} новых вакансий` : 'Новых нет');
-      if (added > 0) void load(filter, page, hasContact, noLead, sinceStartup, timeline, location, selectedChannels);
+      if (added > 0) void load(filter, page, hasContact, noLead, sinceStartup, timeline, location, selectedChannels, buildExcluded());
     } catch {
       setResyncToast('Ошибка синхронизации');
     } finally {
@@ -193,7 +207,7 @@ export default function App() {
               {resyncing ? '⏳ Синхронизация...' : '⟳ Ресинк'}
             </button>
             <button
-              onClick={() => void load(filter, page, hasContact, noLead, sinceStartup, timeline, location, selectedChannels)}
+              onClick={() => void load(filter, page, hasContact, noLead, sinceStartup, timeline, location, selectedChannels, buildExcluded())}
               className="rounded-lg bg-gray-100 dark:bg-gray-800 px-3 py-1.5 text-xs font-medium text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700"
             >
               ↻ Обновить
@@ -217,6 +231,10 @@ export default function App() {
             sinceStartup={sinceStartup}
             onSinceStartupChange={handleSinceStartupChange}
             sessionStart={sessionStart}
+            hideSaved={hideSaved}
+            onHideSavedChange={(v) => { setHideSaved(v); setPage(1); }}
+            hideSkipped={hideSkipped}
+            onHideSkippedChange={(v) => { setHideSkipped(v); setPage(1); }}
           />
         </aside>
 

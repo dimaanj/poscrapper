@@ -26,6 +26,7 @@ export function getDb(): Database.Database {
       tg_link       TEXT,
       status        TEXT DEFAULT 'new',
       matched_at    DATETIME DEFAULT (datetime('now')),
+      message_date  DATETIME,
       UNIQUE(channel, message_id)
     );
 
@@ -34,6 +35,12 @@ export function getDb(): Database.Database {
       value TEXT NOT NULL
     );
   `);
+
+  // migration: add message_date if it doesn't exist yet
+  const cols = (_db.pragma('table_info(vacancies)') as Array<{ name: string }>).map((c) => c.name);
+  if (!cols.includes('message_date')) {
+    _db.exec('ALTER TABLE vacancies ADD COLUMN message_date DATETIME');
+  }
 
   return _db;
 }

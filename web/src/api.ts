@@ -41,6 +41,7 @@ export async function fetchVacancies(
   since: TimelineFilter = 'all',
   location: LocationFilter = 'any',
   channels: string[] = [],
+  excludeStatuses: VacancyStatus[] = [],
 ): Promise<VacanciesResponse> {
   const params = new URLSearchParams({ page: String(page), limit: String(limit) });
   if (status && status !== 'all') params.set('status', status);
@@ -50,6 +51,7 @@ export async function fetchVacancies(
   if (since !== 'all') params.set('since', since);
   if (location !== 'any') params.set('location', location);
   if (channels.length > 0) params.set('channels', channels.join(','));
+  if (excludeStatuses.length > 0) params.set('exclude', excludeStatuses.join(','));
   const res = await fetch(`${BASE}/vacancies?${params}`);
   if (!res.ok) throw new Error('Failed to fetch vacancies');
   return res.json() as Promise<VacanciesResponse>;

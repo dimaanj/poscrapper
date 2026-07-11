@@ -23,6 +23,10 @@ function formatDate(iso: string) {
   return d.toLocaleDateString('ru-RU', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
 }
 
+function displayDate(vacancy: Vacancy): string {
+  return formatDate(vacancy.message_date ?? vacancy.matched_at);
+}
+
 interface Props {
   vacancy: Vacancy;
   onStatusChange: (id: number, status: VacancyStatus) => void;
@@ -67,7 +71,7 @@ export default function VacancyCard({ vacancy, onStatusChange }: Props) {
           <div className="flex items-center gap-2 min-w-0">
             <span className="text-xs font-semibold text-indigo-600 dark:text-indigo-400 shrink-0">{vacancy.channel}</span>
             <span className="text-xs text-gray-300 dark:text-gray-600">·</span>
-            <span className="text-xs text-gray-400 dark:text-gray-500 shrink-0">{formatDate(vacancy.matched_at)}</span>
+            <span className="text-xs text-gray-400 dark:text-gray-500 shrink-0">{displayDate(vacancy)}</span>
           </div>
           <span className={`shrink-0 rounded-full px-2 py-0.5 text-xs font-medium ${badge.cls}`}>
             {badge.label}

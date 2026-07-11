@@ -21,9 +21,13 @@ interface Props {
   sinceStartup: boolean;
   onSinceStartupChange: (v: boolean) => void;
   sessionStart: string | null;
+  hideSaved: boolean;
+  onHideSavedChange: (v: boolean) => void;
+  hideSkipped: boolean;
+  onHideSkippedChange: (v: boolean) => void;
 }
 
-export default function StatusFilter({ active, counts, onChange, hasContact, onHasContactChange, noLead, onNoLeadChange, sinceStartup, onSinceStartupChange, sessionStart }: Props) {
+export default function StatusFilter({ active, counts, onChange, hasContact, onHasContactChange, noLead, onNoLeadChange, sinceStartup, onSinceStartupChange, sessionStart, hideSaved, onHideSavedChange, hideSkipped, onHideSkippedChange }: Props) {
   return (
     <nav className="flex flex-col gap-1">
       {FILTERS.map(({ value, label }) => {
@@ -89,6 +93,28 @@ export default function StatusFilter({ active, counts, onChange, hasContact, onH
               </span>
             )}
           </span>
+        </label>
+      </div>
+
+      <div className="mt-3 border-t border-gray-200 dark:border-gray-800 pt-3 flex flex-col gap-1">
+        <p className="mb-1 px-3 text-[10px] font-semibold uppercase tracking-wide text-gray-400 dark:text-gray-600">Скрыть</p>
+        <label className="flex cursor-pointer items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 hover:text-gray-900 dark:hover:text-gray-100 transition-colors">
+          <input
+            type="checkbox"
+            checked={hideSaved}
+            onChange={(e) => onHideSavedChange(e.target.checked)}
+            className="h-3.5 w-3.5 rounded accent-indigo-500"
+          />
+          <span>Сохранённые</span>
+        </label>
+        <label className="flex cursor-pointer items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 hover:text-gray-900 dark:hover:text-gray-100 transition-colors">
+          <input
+            type="checkbox"
+            checked={hideSkipped}
+            onChange={(e) => onHideSkippedChange(e.target.checked)}
+            className="h-3.5 w-3.5 rounded accent-indigo-500"
+          />
+          <span>Пропущенные</span>
         </label>
       </div>
     </nav>

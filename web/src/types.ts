@@ -14,6 +14,7 @@ export interface Vacancy {
   tg_link: string | null;
   status: VacancyStatus;
   matched_at: string;
+  message_date: string | null;
 }
 
 export interface VacanciesResponse {
