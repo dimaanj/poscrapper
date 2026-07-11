@@ -15,10 +15,33 @@ function isValidStatus(s: unknown): s is Status {
   return VALID_STATUSES.includes(s as Status);
 }
 
+const TIMELINE_SQL: Record<string, string> = {
+  '1d': '-1 day',
+  '3d': '-3 days',
+  '7d': '-7 days',
+  '30d': '-30 days',
+};
+
+const REMOTE_CONDITION = "(text LIKE '%удалённо%' OR text LIKE '%удаленно%' OR text LIKE '%remote%' OR text LIKE '%ремоут%' OR text LIKE '%дистанционно%')";
+const RUSSIA_CONDITION = "(text LIKE '%россия%' OR text LIKE '%российская федерация%' OR text LIKE '% РФ%' OR text LIKE '%РФ.%' OR text LIKE '%москва%' OR text LIKE '%санкт-петербург%' OR text LIKE '%спб%' OR text LIKE '%екатеринбург%' OR text LIKE '%новосибирск%' OR text LIKE '%казань%')";
+
 // GET /api/vacancies?status=new&hasContact=true&isRemote=true&page=1&limit=50
 router.get('/', (req: Request, res: Response) => {
   const db = getDb();
-  const { status, hasContact, isRemote, noOffice, noLead, sinceStartup, channel, page = '1', limit = '50' } = req.query as Record<string, string>;
+  const {
+    status,
+    hasContact,
+    isRemote,
+    noOffice,
+    noLead,
+    sinceStartup,
+    channel,
+    channels,
+    since,
+    location,
+    page = '1',
+    limit = '50',
+  } = req.query as Record<string, string>;
 
   const pageNum = Math.max(1, parseInt(page, 10));
   const limitNum = Math.min(100, Math.max(1, parseInt(limit, 10)));
@@ -34,20 +57,39 @@ router.get('/', (req: Request, res: Response) => {
   if (hasContact === 'true') {
     conditions.push("contact_type != 'unknown'");
   }
-  if (isRemote === 'true') {
-    conditions.push("(text LIKE '%удалённо%' OR text LIKE '%удаленно%' OR text LIKE '%remote%' OR text LIKE '%ремоут%' OR text LIKE '%дистанционно%')");
+  if (location === 'remote') {
+    conditions.push(REMOTE_CONDITION);
   }
-  if (noOffice === 'true') {
+  if (location === 'russia') {
+    conditions.push(RUSSIA_CONDITION);
+  }
+  if (isRemote === 'true' && (!location || location === 'any')) {
+    conditions.push(REMOTE_CONDITION);
+  }
+  if (noOffice === 'true' && (!location || location === 'any')) {
     conditions.push("(text NOT LIKE '%офис%' AND text NOT LIKE '%office%' AND text NOT LIKE '% РФ%' AND text NOT LIKE '%РФ.%' AND text NOT LIKE '%российская федерация%' AND text NOT LIKE '%россия%' AND text NOT LIKE '%москва%' AND text NOT LIKE '%санкт-петербург%' AND text NOT LIKE '%спб%')");
   }
   if (noLead === 'true') {
     conditions.push("(text NOT LIKE '%lead%' AND text NOT LIKE '%лид%' AND text NOT LIKE '%team lead%' AND text NOT LIKE '%tech lead%')");
   }
+  if (since && TIMELINE_SQL[since]) {
+    conditions.push("matched_at >= datetime('now', ?)");
+    params.push(TIMELINE_SQL[since]);
+  }
   if (sinceStartup === 'true' && _prevSessionStart) {
     conditions.push('matched_at >= ?');
     params.push(_prevSessionStart);
   }
-  if (channel) {
+
+  const channelList = (channels ?? '')
+    .split(',')
+    .map((ch) => ch.trim())
+    .filter(Boolean);
+
+  if (channelList.length > 0) {
+    conditions.push(`channel IN (${channelList.map(() => '?').join(',')})`);
+    params.push(...channelList);
+  } else if (channel) {
     conditions.push('channel = ?');
     params.push(channel);
   }

@@ -1,5 +1,7 @@
 export type ContactType = 'telegram' | 'email' | 'form' | 'unknown';
 export type VacancyStatus = 'new' | 'saved' | 'applied' | 'skipped';
+export type TimelineFilter = 'all' | '1d' | '3d' | '7d' | '30d';
+export type LocationFilter = 'any' | 'russia' | 'remote';
 
 export interface Vacancy {
   id: number;

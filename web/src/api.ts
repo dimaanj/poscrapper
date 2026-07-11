@@ -1,4 +1,11 @@
-import type { VacanciesResponse, StatusCounts, Templates, VacancyStatus } from './types';
+import type {
+  VacanciesResponse,
+  StatusCounts,
+  Templates,
+  VacancyStatus,
+  TimelineFilter,
+  LocationFilter,
+} from './types';
 
 const BASE = '/api';
 
@@ -29,20 +36,20 @@ export async function fetchVacancies(
   page = 1,
   limit = 50,
   hasContact?: boolean,
-  isRemote?: boolean,
-  noOffice?: boolean,
   noLead?: boolean,
   sinceStartup?: boolean,
-  channel?: string,
+  since: TimelineFilter = 'all',
+  location: LocationFilter = 'any',
+  channels: string[] = [],
 ): Promise<VacanciesResponse> {
   const params = new URLSearchParams({ page: String(page), limit: String(limit) });
   if (status && status !== 'all') params.set('status', status);
   if (hasContact) params.set('hasContact', 'true');
-  if (isRemote) params.set('isRemote', 'true');
-  if (noOffice) params.set('noOffice', 'true');
   if (noLead) params.set('noLead', 'true');
   if (sinceStartup) params.set('sinceStartup', 'true');
-  if (channel) params.set('channel', channel);
+  if (since !== 'all') params.set('since', since);
+  if (location !== 'any') params.set('location', location);
+  if (channels.length > 0) params.set('channels', channels.join(','));
   const res = await fetch(`${BASE}/vacancies?${params}`);
   if (!res.ok) throw new Error('Failed to fetch vacancies');
   return res.json() as Promise<VacanciesResponse>;

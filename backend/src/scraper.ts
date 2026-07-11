@@ -69,7 +69,8 @@ export async function fetchHistory(): Promise<number> {
             addOffset: 0,
             maxId: 0,
             minId: 0,
-            hash: BigInt(0),
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            hash: BigInt(0) as any,
           }),
         );
 
@@ -125,8 +126,8 @@ export async function startScraper(): Promise<void> {
     if (!msg?.text) return;
 
     const chat = await msg.getChat();
-    const username = (chat as Record<string, unknown>)?.username as string | undefined;
-    const channelName = username ? `@${username}` : String((chat as Record<string, unknown>)?.id ?? '');
+    const username = (chat as unknown as Record<string, unknown>)?.username as string | undefined;
+    const channelName = username ? `@${username}` : String((chat as unknown as Record<string, unknown>)?.id ?? '');
 
     if (saveMessage(channelName, username, { id: msg.id, text: msg.text })) {
       const contact = parseContact(msg.text);
