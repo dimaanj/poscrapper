@@ -116,8 +116,24 @@ export default function App() {
     setPage(1);
   };
 
-  const handleStatusChange = () => {
-    void load(filter, page, hasContact, noLead, sinceStartup, timeline, location, selectedChannels);
+  const handleStatusChange = (id: number, status: VacancyStatus) => {
+    setVacancies((prev) => {
+      const oldStatus = prev.find((v) => v.id === id)?.status;
+      // remove card from list if active filter no longer matches
+      const matchesFilter = filter === 'all' || filter === status;
+      const next = matchesFilter
+        ? prev.map((v) => (v.id === id ? { ...v, status } : v))
+        : prev.filter((v) => v.id !== id);
+      setCounts((counts) => {
+        if (!oldStatus || oldStatus === status) return counts;
+        return {
+          ...counts,
+          [oldStatus]: Math.max(0, (counts[oldStatus] ?? 0) - 1),
+          [status]: (counts[status] ?? 0) + 1,
+        };
+      });
+      return next;
+    });
   };
 
   const handleResync = async () => {

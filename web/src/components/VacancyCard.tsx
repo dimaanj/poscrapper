@@ -25,7 +25,7 @@ function formatDate(iso: string) {
 
 interface Props {
   vacancy: Vacancy;
-  onStatusChange: () => void;
+  onStatusChange: (id: number, status: VacancyStatus) => void;
 }
 
 export default function VacancyCard({ vacancy, onStatusChange }: Props) {
@@ -40,7 +40,7 @@ export default function VacancyCard({ vacancy, onStatusChange }: Props) {
     setUpdatingStatus(true);
     try {
       await updateStatus(vacancy.id, status);
-      onStatusChange();
+      onStatusChange(vacancy.id, status);
     } finally {
       setUpdatingStatus(false);
     }

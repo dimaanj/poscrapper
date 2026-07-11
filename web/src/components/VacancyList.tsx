@@ -1,10 +1,10 @@
-import type { Vacancy } from '../types';
+import type { Vacancy, VacancyStatus } from '../types';
 import VacancyCard from './VacancyCard';
 
 interface Props {
   vacancies: Vacancy[];
   loading: boolean;
-  onStatusChange: () => void;
+  onStatusChange: (id: number, status: VacancyStatus) => void;
 }
 
 export default function VacancyList({ vacancies, loading, onStatusChange }: Props) {
